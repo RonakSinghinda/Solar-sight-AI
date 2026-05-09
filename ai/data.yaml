@@ -1,0 +1,12 @@
+path: ./datasets/solar_panels  # root dir
+train: images
+val: images
+
+# Classes mapped to match the 6 unique classes found in your labels
+names:
+  0: Bird Drop
+  1: Clean
+  2: Dusty
+  3: Electrical Damage
+  4: Physical Damage
+  5: Snow-Covered

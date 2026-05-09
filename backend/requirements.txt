@@ -1,0 +1,11 @@
+Django>=4.2,<5.0
+djangorestframework
+djangorestframework-simplejwt
+celery
+redis
+psycopg2-binary
+django-storages
+boto3
+django-cors-headers
+Pillow
+reportlab
