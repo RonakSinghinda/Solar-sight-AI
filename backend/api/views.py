@@ -7,8 +7,8 @@ from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
-from .serializers import InspectionSerializer, FaultSerializer, ReportSerializer
-from backend.models.models import Inspection, Image, Fault, Report
+from .serializers import InspectionSerializer, FaultSerializer, ReportSerializer, PanelSerializer
+from backend.models.models import Inspection, Image, Fault, Report, Panel
 from backend.tasks import process_uav_image
 
 class RegisterView(APIView):
@@ -63,6 +63,11 @@ class InspectionViewSet(viewsets.ModelViewSet):
 class FaultViewSet(viewsets.ModelViewSet):
     queryset = Fault.objects.all().order_by('-detected_at')
     serializer_class = FaultSerializer
+    permission_classes = [IsAuthenticated]
+
+class PanelViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Panel.objects.all()
+    serializer_class = PanelSerializer
     permission_classes = [IsAuthenticated]
 
 class ReportViewSet(viewsets.ReadOnlyModelViewSet):

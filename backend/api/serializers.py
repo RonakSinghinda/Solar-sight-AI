@@ -20,6 +20,13 @@ class InspectionSerializer(serializers.ModelSerializer):
         model = Inspection
         fields = '__all__'
 
+class PanelSerializer(serializers.ModelSerializer):
+    faults = FaultSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = Panel
+        fields = '__all__'
+
 class ReportSerializer(serializers.ModelSerializer):
     class Meta:
         model = Report
