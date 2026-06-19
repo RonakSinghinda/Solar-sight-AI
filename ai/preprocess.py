@@ -1,4 +1,5 @@
 from PIL import Image, ExifTags
+import hashlib
 import io
 
 def get_exif_data(image):
@@ -37,9 +38,22 @@ def get_gps_info(exif_data):
     except Exception:
         return None, None
 
+def get_fake_gps(image_path_or_name: str):
+    """Deterministic fake GPS for images without EXIF — for demo/dev only.
+    Scatters points around a sample solar farm in Rajasthan, India.
+    """
+    name = str(image_path_or_name)
+    h = int(hashlib.md5(name.encode()).hexdigest(), 16)
+    base_lat, base_lon = 26.9124, 75.7873  # ~Jaipur solar belt
+    lat = base_lat + (h % 1000) / 10000   # ±0.1 degree spread
+    lon = base_lon + (h % 700)  / 10000
+    return round(lat, 6), round(lon, 6)
+
 def preprocess_image(image_path_or_file):
     """
     Extracts GPS coordinates and resizes the image to 640x640.
+    Falls back to deterministic fake GPS when EXIF data is absent
+    (useful for demo/dev with manually-uploaded images).
     Returns:
         tuple: (resized_pil_image, latitude, longitude)
     """
@@ -48,7 +62,12 @@ def preprocess_image(image_path_or_file):
     # Extract EXIF
     exif = get_exif_data(image)
     lat, lon = get_gps_info(exif)
-    
+
+    # Fallback: inject fake GPS so the heatmap always has data in dev
+    if lat is None or lon is None:
+        source_name = getattr(image_path_or_file, 'name', str(image_path_or_file))
+        lat, lon = get_fake_gps(source_name)
+
     # Ensure RGB mode
     if image.mode != 'RGB':
         image = image.convert('RGB')

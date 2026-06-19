@@ -1,21 +1,18 @@
-import os
+import io
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
-from django.conf import settings
+from django.core.files.base import ContentFile
 from backend.models.models import Inspection, Report
+from PIL import Image as PILImage
 
 def generate_inspection_report(inspection_id):
     inspection = Inspection.objects.get(id=inspection_id)
     
-    # Check if MEDIA_ROOT is set, fallback to absolute path if not defined
-    media_root = getattr(settings, 'MEDIA_ROOT', os.path.join(settings.BASE_DIR, 'media'))
-    reports_dir = os.path.join(media_root, 'reports')
-    os.makedirs(reports_dir, exist_ok=True)
-    
     filename = f"report_{inspection_id}.pdf"
-    filepath = os.path.join(reports_dir, filename)
     
-    c = canvas.Canvas(filepath, pagesize=letter)
+    # Write to in-memory buffer to support both local and S3 storage
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
     
     # Premium Header
     c.setFont("Helvetica-Bold", 24)
@@ -47,17 +44,23 @@ def generate_inspection_report(inspection_id):
         y -= 20
         
         # Render the uploaded image
-        if image.file and os.path.exists(image.file.path):
+        if image.file:
             try:
+                # Open image using PIL from storage-agnostic stream
+                with image.file.open('rb') as img_f:
+                    pil_img = PILImage.open(img_f)
+                    # Force load the image data into memory before drawing
+                    pil_img.load()
+                
                 # Fixed width/height for layout consistency
                 img_width = 350
                 img_height = 220
-                c.drawImage(image.file.path, 50, y - img_height, width=img_width, height=img_height, preserveAspectRatio=True)
+                c.drawImage(pil_img, 50, y - img_height, width=img_width, height=img_height, preserveAspectRatio=True)
                 y -= (img_height + 30)
             except Exception as e:
                 c.setFont("Helvetica", 10)
                 c.setFillColorRGB(0.8, 0.1, 0.1)
-                c.drawString(50, y, f"(Image rendering failed)")
+                c.drawString(50, y, f"(Image rendering failed: {str(e)})")
                 y -= 30
                 
         # Render faults
@@ -84,8 +87,9 @@ def generate_inspection_report(inspection_id):
             
     c.save()
     
+    # Save the buffer contents using Django file storage
+    buffer.seek(0)
     report, _ = Report.objects.get_or_create(inspection=inspection)
-    report.pdf_file.name = f"reports/{filename}"
-    report.save()
+    report.pdf_file.save(filename, ContentFile(buffer.getvalue()), save=True)
     
     return report

@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  body {
+    @apply bg-background text-primary font-sans antialiased overflow-x-hidden;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-tight;
+  }
+}
+
+@layer utilities {
+  .text-glow-cyan {
+    text-shadow: 0 0 10px rgba(0, 240, 255, 0.6), 0 0 20px rgba(0, 240, 255, 0.3);
+  }
+  .text-glow-orange {
+    text-shadow: 0 0 10px rgba(255, 95, 0, 0.5), 0 0 20px rgba(255, 95, 0, 0.3);
+  }
+  .box-glow-cyan {
+    box-shadow: 0 0 15px rgba(0, 240, 255, 0.25), inset 0 0 10px rgba(0, 240, 255, 0.05);
+  }
+  .box-glow-orange {
+    box-shadow: 0 0 15px rgba(255, 95, 0, 0.25);
+  }
+  .box-glow-red {
+    box-shadow: 0 0 15px rgba(255, 0, 60, 0.3);
+  }
+  .glass-panel {
+    @apply bg-surface/60 backdrop-blur-xl border border-white/10 shadow-2xl;
+  }
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-md border border-white/[0.08] shadow-lg hover:border-white/20 transition-all duration-300;
+  }
+  .gradient-cinematic {
+    background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.9) 100%);
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: #050505; }
+::-webkit-scrollbar-thumb { background: #1a1a1a; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #333; }
+
+/* Lenis */
+html.lenis { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-stopped { overflow: hidden; }

@@ -1,12 +1,13 @@
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.routers import DefaultRouter
-from .views import RegisterView, InspectionViewSet, FaultViewSet, ReportViewSet, dashboard_summary, generate_report
+from .views import RegisterView, InspectionViewSet, FaultViewSet, ReportViewSet, PanelViewSet, dashboard_summary, generate_report, fault_map_data
 
 router = DefaultRouter()
 router.register(r'inspections', InspectionViewSet)
 router.register(r'faults', FaultViewSet)
 router.register(r'reports', ReportViewSet)
+router.register(r'panels', PanelViewSet)
 
 urlpatterns = [
     # Auth endpoints
@@ -16,6 +17,7 @@ urlpatterns = [
     
     # Dashboard and custom endpoints
     path('dashboard/summary/', dashboard_summary, name='dashboard_summary'),
+    path('dashboard/map/', fault_map_data, name='fault-map-data'),
     path('reports/generate/', generate_report, name='generate_report'),
     
     # Router URLs

@@ -7,8 +7,8 @@ from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
-from .serializers import InspectionSerializer, FaultSerializer, ReportSerializer
-from backend.models.models import Inspection, Image, Fault, Report
+from .serializers import InspectionSerializer, FaultSerializer, ReportSerializer, PanelSerializer
+from backend.models.models import Inspection, Image, Fault, Report, Panel
 from backend.tasks import process_uav_image
 
 class RegisterView(APIView):
@@ -65,6 +65,12 @@ class FaultViewSet(viewsets.ModelViewSet):
     serializer_class = FaultSerializer
     permission_classes = [IsAuthenticated]
 
+class PanelViewSet(viewsets.ModelViewSet):
+    queryset = Panel.objects.all()
+    serializer_class = PanelSerializer
+    permission_classes = [IsAuthenticated]
+
+
 class ReportViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Report.objects.all().order_by('-generated_at')
     serializer_class = ReportSerializer
@@ -97,3 +103,38 @@ def generate_report(request):
         return Response({'message': 'Report generated', 'report_id': str(report.id), 'url': pdf_url})
     except Exception as e:
         return Response({'error': str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def fault_map_data(request):
+    """
+    Returns all faults that have valid GPS coordinates.
+    Optionally filter by fault_type or date range.
+    """
+    faults = Fault.objects.select_related('image__inspection') \
+                          .filter(
+                              image__gps_lat__isnull=False,
+                              image__gps_lon__isnull=False
+                          )
+
+    # Optional filters from query params
+    fault_type = request.GET.get('fault_type')
+    if fault_type:
+        faults = faults.filter(fault_type=fault_type)
+
+    date_from = request.GET.get('date_from')
+    if date_from:
+        faults = faults.filter(detected_at__date__gte=date_from)
+
+    data = [
+        {
+            "lat": f.image.gps_lat,
+            "lon": f.image.gps_lon,
+            "fault_type": f.fault_type,
+            "confidence": round(f.confidence, 3),
+            "inspection_id": str(f.image.inspection.id),
+            "detected_at": f.detected_at.isoformat(),
+        }
+        for f in faults
+    ]
+    return Response(data)

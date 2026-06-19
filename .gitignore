@@ -1,0 +1,25 @@
+# Python/Django
+venv/
+__pycache__/
+*.pyc
+db.sqlite3
+media/
+staticfiles/
+*.log
+
+# Next.js (front end)
+front end/node_modules/
+front end/.next/
+front end/out/
+front end/.env*.local
+
+# IDE/OS files
+.DS_Store
+.vscode/
+.idea/
+Thumbs.db
+
+# AI Weights & Datasets
+ai/datasets/
+ai/*.pt
+

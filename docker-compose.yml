@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # 1. PostgreSQL Database Service
   db:
     image: postgres:15
     container_name: solarsight_db
@@ -13,11 +14,64 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  # 2. Redis Task Broker Service
   redis:
     image: redis:7-alpine
     container_name: solarsight_redis
     ports:
       - "6379:6379"
+
+  # 3. Django Backend Service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: solarsight_backend
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=development-secret-key-1234
+      - DATABASE_URL=postgres://solarsight:password@db:5432/solarsight_db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_TASK_ALWAYS_EAGER=False
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./media:/app/media
+
+  # 4. Celery Worker (Inference Execution Engine)
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: solarsight_celery
+    command: celery -A backend worker --loglevel=info
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=development-secret-key-1234
+      - DATABASE_URL=postgres://solarsight:password@db:5432/solarsight_db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_TASK_ALWAYS_EAGER=False
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./media:/app/media
+
+  # 5. Next.js Frontend Service
+  frontend:
+    build:
+      context: ./front end
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:8000/api
+    container_name: solarsight_frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
 
 volumes:
   postgres_data:
