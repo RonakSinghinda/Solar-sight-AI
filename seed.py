@@ -47,6 +47,13 @@ def seed_database():
         user.save()
     print(f"[USER] Operator user: '{user.username}' (password: 'admin123')")
 
+    # Create guest/demo user for public showcase
+    demo_user, d_created = User.objects.get_or_create(username='solarsight-demo', defaults={'email': 'demo@example.com'})
+    if d_created or not demo_user.has_usable_password():
+        demo_user.set_password('solar-guest-2026')
+        demo_user.save()
+    print(f"[USER] Guest showcase user: '{demo_user.username}' (password: 'solar-guest-2026')")
+
     # Jaipur / Rajasthan Solar Belt coordinates
     BASE_LAT = 26.9124
     BASE_LON = 75.7873
