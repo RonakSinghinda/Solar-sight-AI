@@ -26,7 +26,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir gunicorn
 
 # Copy backend codebase into the container
-COPY manage.py /app/
+COPY manage.py seed.py /app/
 COPY backend/ /app/backend/
 COPY ai/ /app/ai/
 COPY reports/ /app/reports/
