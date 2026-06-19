@@ -1,43 +1,28 @@
-# Stage 1: Build the Next.js application
-FROM node:18-alpine AS builder
+FROM node:18-alpine
 
-# Set the working directory inside the builder container
+# Set directory
 WORKDIR /app
 
 # Copy dependency catalogs
 COPY package*.json ./
 
-# Install packages
+# Install dependencies (including devDependencies needed for compiling)
 RUN npm install
 
 # Copy frontend source files
 COPY . .
 
-# Set dynamic API URL argument during build (e.g. your production Django domain)
+# Set dynamic API URL argument
 ARG NEXT_PUBLIC_API_URL=http://localhost:8000/api
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
-# Build Next.js project
-RUN npm run build
-
-# Stage 2: Serve the Next.js application
-FROM node:18-alpine AS runner
-
-# Set production environment and directory
-WORKDIR /app
-ENV NODE_ENV=production
-
-# Copy dependency catalogs and install only production-ready modules
-COPY package*.json ./
-RUN npm install --only=production
-
-# Copy built app and public assets from the builder stage
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/next.config.mjs ./next.config.mjs
+# Compile Next.js, then immediately prune devDependencies and clean npm cache to save disk space
+RUN npm run build \
+    && npm prune --production \
+    && npm cache clean --force
 
 # Expose Next.js server port
 EXPOSE 3000
 
-# Start server using Next.js runtime
+# Start server
 CMD ["npm", "start"]
