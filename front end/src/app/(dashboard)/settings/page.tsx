@@ -90,7 +90,7 @@ export default function SettingsPage() {
         <p className="text-muted text-sm">Configure the backend connection URL to your Django service.</p>
         <div>
           <label className="block text-[10px] font-mono text-muted mb-2 tracking-widest">BACKEND API URL</label>
-          <input type="url" defaultValue="http://localhost:8000/api"
+          <input type="url" defaultValue={process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"}
             className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-accent-cyan transition-colors font-mono"
           />
         </div>
