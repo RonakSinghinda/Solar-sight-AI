@@ -1,9 +1,11 @@
 import io
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
 from django.core.files.base import ContentFile
 from backend.models.models import Inspection, Report
 from PIL import Image as PILImage
+
 
 def generate_inspection_report(inspection_id):
     inspection = Inspection.objects.get(id=inspection_id)
@@ -49,13 +51,18 @@ def generate_inspection_report(inspection_id):
                 # Open image using PIL from storage-agnostic stream
                 with image.file.open('rb') as img_f:
                     pil_img = PILImage.open(img_f)
-                    # Force load the image data into memory before drawing
+                    # Force load the image data into memory before closing the stream
                     pil_img.load()
+                    # Convert to RGB to ensure compatibility with PDF/JPEG encoding
+                    if pil_img.mode not in ('RGB', 'L'):
+                        pil_img = pil_img.convert('RGB')
+                    # ReportLab requires ImageReader — it cannot accept a raw PIL Image
+                    img_reader = ImageReader(pil_img)
                 
                 # Fixed width/height for layout consistency
                 img_width = 350
                 img_height = 220
-                c.drawImage(pil_img, 50, y - img_height, width=img_width, height=img_height, preserveAspectRatio=True)
+                c.drawImage(img_reader, 50, y - img_height, width=img_width, height=img_height, preserveAspectRatio=True)
                 y -= (img_height + 30)
             except Exception as e:
                 c.setFont("Helvetica", 10)

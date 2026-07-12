@@ -39,6 +39,13 @@ class ReportSerializer(serializers.ModelSerializer):
         model = Report
         fields = '__all__'
 
+from backend.models.models import Notification
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = '__all__'
+
 class FaultMapSerializer(serializers.Serializer):
     lat = serializers.FloatField(source='image.gps_lat')
     lon = serializers.FloatField(source='image.gps_lon')
@@ -46,3 +53,4 @@ class FaultMapSerializer(serializers.Serializer):
     confidence = serializers.FloatField()
     inspection_id = serializers.UUIDField(source='image.inspection.id')
     detected_at = serializers.DateTimeField()
+

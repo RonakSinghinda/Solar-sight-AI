@@ -38,6 +38,8 @@ export default function MapPage() {
   const leafletMap = useRef<any>(null);
   const heatLayer = useRef<any>(null);
 
+  const initializingRef = useRef(false);
+
   const [points, setPoints] = useState<FaultPoint[]>([]);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
@@ -71,7 +73,8 @@ export default function MapPage() {
 
   // ── Init Leaflet map once DOM node is mounted ─────────────────────────────
   useEffect(() => {
-    if (!mapRef.current || leafletMap.current) return;
+    if (!mapRef.current || leafletMap.current || initializingRef.current) return;
+    initializingRef.current = true;
 
     // Inject Leaflet CSS (idempotent)
     if (!document.getElementById('leaflet-css')) {
@@ -83,13 +86,24 @@ export default function MapPage() {
     }
 
     // Dynamically import Leaflet (avoids Next.js SSR issues)
-    import('leaflet').then((L) => {
-      // Load Leaflet.heat from CDN after Leaflet itself is ready
-      const script = document.createElement('script');
-      script.src =
-        'https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js';
-      script.onload = () => {
-        if (!mapRef.current) return;
+    import('leaflet').then((leafletModule) => {
+      // leaflet-heat CDN script patches window.L, NOT the ESM module.
+      // We must set window.L to our ESM import so the CDN script can find it,
+      // AND we must read window.L back when creating the heat layer (not the ESM object).
+      const win = window as any;
+      win.L = leafletModule;
+
+      // Check if leaflet-heat script is already loaded/loading
+      let script = document.getElementById('leaflet-heat-script') as HTMLScriptElement;
+
+      // Use the ESM L for standard Leaflet APIs; use win.L for heat layer
+      const L = leafletModule;
+
+      const initializeMap = () => {
+        if (!mapRef.current || leafletMap.current) return;
+        
+        // Double check if container is already initialized by Leaflet
+        if ((mapRef.current as any)._leaflet_id) return;
 
         const map = L.map(mapRef.current, { zoomControl: false }).setView(
           [20.5937, 78.9629],
@@ -117,24 +131,72 @@ export default function MapPage() {
 
         leafletMap.current = map;
 
-        // Create heat layer (empty; updated when data loads)
-        const H = (L as any).heatLayer([], {
-          radius: 35,
-          blur: 25,
-          maxZoom: 17,
-          gradient: {
-            0.2: '#3B82F6',
-            0.5: '#F59E0B',
-            0.8: '#EF4444',
-            1.0: '#7F1D1D',
-          },
-        }).addTo(map);
+        // IMPORTANT: Use win.L.heatLayer — the CDN leaflet-heat plugin patches
+        // window.L, NOT the ESM import. (L as any).heatLayer crashes because
+        // the ESM module object and window.L can be different references.
+        if (typeof win.L.heatLayer === 'function') {
+          const H = win.L.heatLayer([], {
+            radius: 35,
+            blur: 25,
+            maxZoom: 17,
+            gradient: {
+              0.2: '#3B82F6',
+              0.5: '#F59E0B',
+              0.8: '#EF4444',
+              1.0: '#7F1D1D',
+            },
+          }).addTo(map);
+          heatLayer.current = H;
+        } else {
+          console.warn('leaflet-heat not ready — heat overlay disabled');
+        }
 
-        heatLayer.current = H;
         setMapReady(true);
+
+        // Leaflet must recalculate its size after the framer-motion
+        // page-transition animation finishes (AppShell uses 0.4s ease).
+        // Without this, tiles render into a 0×0 box and appear invisible.
+        setTimeout(() => {
+          map.invalidateSize();
+        }, 500);
       };
-      document.head.appendChild(script);
+
+      if (!script) {
+        script = document.createElement('script');
+        script.id = 'leaflet-heat-script';
+        script.src =
+          'https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js';
+        script.onload = initializeMap;
+        script.onerror = () => {
+          // CDN failed — still show the map, just without heat overlay
+          console.warn('Failed to load leaflet-heat from CDN');
+          initializeMap();
+        };
+        document.head.appendChild(script);
+      } else {
+        // Script tag already in DOM — check via window.L (not ESM module)
+        if (typeof win.L.heatLayer === 'function') {
+          initializeMap();
+        } else {
+          // Still loading — chain onto existing onload
+          const oldOnload = script.onload;
+          script.onload = (e) => {
+            if (oldOnload) (oldOnload as any)(e);
+            initializeMap();
+          };
+        }
+      }
     });
+
+    return () => {
+      // Cleanup map on unmount
+      if (leafletMap.current) {
+        leafletMap.current.remove();
+        leafletMap.current = null;
+      }
+      initializingRef.current = false;
+      setMapReady(false);
+    };
   }, []);
 
   // ── Update heatmap whenever points or filter changes ─────────────────────
@@ -176,8 +238,9 @@ export default function MapPage() {
 
   return (
     <div
+      className="-m-4 md:-m-8"
       style={{
-        height: '100vh',
+        height: 'calc(100vh - 64px)',
         display: 'flex',
         flexDirection: 'column',
         background: '#0f1117',
@@ -190,19 +253,20 @@ export default function MapPage() {
       <div
         style={{
           display: 'flex',
+          flexWrap: 'wrap',
           alignItems: 'center',
-          gap: 16,
-          padding: '0 24px',
-          height: 60,
+          gap: 8,
+          padding: '10px 16px',
           background: 'rgba(15,17,23,0.85)',
           backdropFilter: 'blur(16px)',
           borderBottom: '1px solid rgba(255,255,255,0.07)',
           flexShrink: 0,
           zIndex: 10,
+          minHeight: 56,
         }}
       >
         {/* Title */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 0 auto' }}>
           <div
             style={{
               width: 8,
@@ -210,11 +274,12 @@ export default function MapPage() {
               borderRadius: '50%',
               background: '#22d3ee',
               boxShadow: '0 0 8px #22d3ee',
+              flexShrink: 0,
             }}
           />
           <span
             style={{
-              fontSize: 15,
+              fontSize: 14,
               fontWeight: 700,
               color: '#fff',
               letterSpacing: '0.02em',
@@ -224,25 +289,26 @@ export default function MapPage() {
           </span>
           <span
             style={{
-              fontSize: 12,
+              fontSize: 11,
               color: 'rgba(255,255,255,0.35)',
-              marginLeft: 4,
             }}
           >
-            {visible.length} / {points.length} points
+            {visible.length} / {points.length} pts
           </span>
         </div>
 
-        {/* Filter buttons */}
+        {/* Filter buttons — scrollable row on mobile */}
         <div
           style={{
-            marginLeft: 'auto',
             display: 'flex',
-            gap: 6,
+            gap: 4,
             background: 'rgba(255,255,255,0.04)',
             padding: '4px',
             borderRadius: 10,
             border: '1px solid rgba(255,255,255,0.06)',
+            overflowX: 'auto',
+            flexShrink: 0,
+            maxWidth: '100%',
           }}
         >
           {Object.keys(FILTER_LABELS).map((type) => {
@@ -253,11 +319,12 @@ export default function MapPage() {
                 id={`map-filter-${type}`}
                 onClick={() => setFilter(type)}
                 style={{
-                  padding: '5px 14px',
+                  padding: '4px 10px',
                   borderRadius: 7,
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: active ? 600 : 400,
                   border: 'none',
+                  whiteSpace: 'nowrap',
                   background: active
                     ? FAULT_COLORS[type] + '22'
                     : 'transparent',
@@ -278,10 +345,10 @@ export default function MapPage() {
         {/* Avg confidence badge */}
         <div
           style={{
-            fontSize: 12,
+            fontSize: 11,
             color: 'rgba(255,255,255,0.4)',
             background: 'rgba(255,255,255,0.04)',
-            padding: '4px 12px',
+            padding: '4px 10px',
             borderRadius: 8,
             border: '1px solid rgba(255,255,255,0.06)',
           }}

@@ -43,6 +43,20 @@ def process_uav_image(image_id):
             inspection.status = 'Completed'
             inspection.save()
             
+            # Trigger completed notification
+            if inspection.inspector:
+                try:
+                    from backend.models.models import Notification
+                    total_faults = Fault.objects.filter(image__inspection=inspection).count()
+                    Notification.objects.create(
+                        user=inspection.inspector,
+                        title="Inspection Completed",
+                        message=f"Inspection analysis finished. Detected {total_faults} anomalies.",
+                        link=f"/inspections/{inspection.id}"
+                    )
+                except Exception as n_err:
+                    print(f"Failed to create notification: {n_err}")
+            
             # Automatically generate report when inspection completes
             from reports.generator import generate_inspection_report
             generate_inspection_report(inspection.id)
@@ -50,9 +64,31 @@ def process_uav_image(image_id):
         return f"Successfully processed image {image_id}"
         
     except Exception as e:
+        try:
+            with open("celery_error.log", "a") as f_err:
+                import datetime
+                f_err.write(f"\n--- ERROR AT {datetime.datetime.now()} ---\n")
+                traceback.print_exc(file=f_err)
+        except Exception:
+            pass
         if 'img_obj' in locals() and img_obj:
             inspection = img_obj.inspection
             inspection.status = 'Failed'
             inspection.save()
+            
+            # Trigger failed notification
+            if inspection.inspector:
+                try:
+                    from backend.models.models import Notification
+                    Notification.objects.create(
+                        user=inspection.inspector,
+                        title="Inspection Failed",
+                        message=f"An error occurred during UAV image analysis.",
+                        link=f"/inspections/{inspection.id}"
+                    )
+                except Exception as n_err:
+                    print(f"Failed to create notification: {n_err}")
+                    
         traceback.print_exc()
         return f"Failed to process image {image_id}: {str(e)}"
+

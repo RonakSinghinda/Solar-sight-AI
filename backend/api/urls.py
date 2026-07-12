@@ -1,13 +1,15 @@
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.routers import DefaultRouter
-from .views import RegisterView, InspectionViewSet, FaultViewSet, ReportViewSet, PanelViewSet, dashboard_summary, generate_report, fault_map_data
+from .views import RegisterView, InspectionViewSet, FaultViewSet, ReportViewSet, PanelViewSet, NotificationViewSet, dashboard_summary, generate_report, fault_map_data
 
 router = DefaultRouter()
 router.register(r'inspections', InspectionViewSet)
 router.register(r'faults', FaultViewSet)
 router.register(r'reports', ReportViewSet)
 router.register(r'panels', PanelViewSet)
+router.register(r'notifications', NotificationViewSet)
+
 
 urlpatterns = [
     # Auth endpoints

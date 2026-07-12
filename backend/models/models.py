@@ -3,10 +3,19 @@ from django.contrib.auth.models import User
 import uuid
 
 class Inspection(models.Model):
+    PRIORITY_CHOICES = [('Routine', 'Routine'), ('Urgent', 'Urgent'), ('Emergency', 'Emergency')]
+    SCAN_TYPE_CHOICES = [('Thermal AI', 'Thermal AI'), ('RGB Visual', 'RGB Visual'), ('Both', 'Both')]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     date = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=50, choices=[('Pending', 'Pending'), ('Completed', 'Completed'), ('Failed', 'Failed')], default='Pending')
     inspector = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+
+    # Work Order metadata (populated via New Scan wizard)
+    site_name = models.CharField(max_length=255, null=True, blank=True)
+    priority = models.CharField(max_length=50, choices=PRIORITY_CHOICES, default='Routine')
+    scan_type = models.CharField(max_length=50, choices=SCAN_TYPE_CHOICES, default='Thermal AI')
+    notes = models.TextField(null=True, blank=True)
 
     def __str__(self):
         return f"Inspection {self.id} on {self.date}"
@@ -52,3 +61,16 @@ class Report(models.Model):
 
     def __str__(self):
         return f"Report for {self.inspection.id}"
+
+class Notification(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    link = models.CharField(max_length=255, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.title} for {self.user.username}"
+
