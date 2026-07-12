@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { Activity, AlertTriangle, Zap, Thermometer, UploadCloud, Play, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { inspectionsApi } from '@/services/api';
+import { inspectionsApi, api } from '@/services/api';
 
 const data = [
   { time: '08:00', anomalies: 4, efficiency: 98 },
@@ -18,12 +18,11 @@ const data = [
   { time: '18:00', anomalies: 1, efficiency: 99 },
 ];
 
-const metrics = [
-  { label: 'SYSTEM EFFICIENCY', value: '98.4%', icon: Activity, color: 'text-success', border: 'border-success/20' },
-  { label: 'ACTIVE ANOMALIES', value: '24', icon: AlertTriangle, color: 'text-danger', border: 'border-danger/20' },
-  { label: 'DRONES IN FLIGHT', value: '03', icon: Zap, color: 'text-accent-cyan', border: 'border-accent-cyan/20' },
-  { label: 'THERMAL DELTA MAX', value: '+14°C', icon: Thermometer, color: 'text-accent-orange', border: 'border-accent-orange/20' },
-];
+interface DashboardSummary {
+  total_inspections: number;
+  total_faults: number;
+  open_faults: number;
+}
 
 export default function DashboardPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -31,6 +30,24 @@ export default function DashboardPage() {
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+
+  useEffect(() => {
+    const fetchSummary = async () => {
+      const data = await api.get<DashboardSummary>('/dashboard/summary/');
+      if (data) setSummary(data);
+    };
+    fetchSummary();
+    const interval = setInterval(fetchSummary, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const metrics = [
+    { label: 'SYSTEM EFFICIENCY', value: summary ? `${Math.max(0, 100 - summary.total_faults * 0.5).toFixed(1)}%` : '—', icon: Activity, color: 'text-success', border: 'border-success/20' },
+    { label: 'OPEN ANOMALIES', value: summary ? String(summary.open_faults) : '—', icon: AlertTriangle, color: 'text-danger', border: 'border-danger/20' },
+    { label: 'TOTAL INSPECTIONS', value: summary ? String(summary.total_inspections) : '—', icon: Zap, color: 'text-accent-cyan', border: 'border-accent-cyan/20' },
+    { label: 'TOTAL FAULTS', value: summary ? String(summary.total_faults) : '—', icon: Thermometer, color: 'text-accent-orange', border: 'border-accent-orange/20' },
+  ];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -80,21 +97,21 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5 md:space-y-8">
       <div>
-        <h1 className="text-3xl font-display font-bold text-white mb-1">Central Command</h1>
-        <p className="text-muted text-sm">Real-time AI telemetry and automated inspection queue.</p>
+        <h1 className="text-2xl md:text-3xl font-display font-bold text-white mb-1">Central Command</h1>
+        <p className="text-muted text-xs md:text-sm">Real-time AI telemetry and automated inspection queue.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-5">
         {metrics.map((m, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
-            className={cn("glass-card p-6 rounded-2xl relative overflow-hidden group border", m.border)}
+            className={cn("glass-card p-4 md:p-6 rounded-2xl relative overflow-hidden group border", m.border)}
           >
             <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full blur-[40px] opacity-20 group-hover:opacity-40 transition-opacity ${m.color} bg-current`} />
-            <m.icon className={cn("w-5 h-5 mb-4 relative z-10", m.color)} />
-            <div className="text-3xl font-display font-bold text-white mb-1 relative z-10">{m.value}</div>
-            <div className="text-[10px] font-mono text-muted tracking-widest relative z-10">{m.label}</div>
+            <m.icon className={cn("w-4 h-4 md:w-5 md:h-5 mb-3 md:mb-4 relative z-10", m.color)} />
+            <div className="text-2xl md:text-3xl font-display font-bold text-white mb-1 relative z-10">{m.value}</div>
+            <div className="text-[9px] md:text-[10px] font-mono text-muted tracking-widest relative z-10">{m.label}</div>
           </motion.div>
         ))}
       </div>

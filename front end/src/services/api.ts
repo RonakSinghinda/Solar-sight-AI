@@ -53,6 +53,7 @@ export const inspectionsApi = {
       headers: getAuthHeaders(), // Do not set Content-Type, let browser set it for FormData
       body: data 
     }).then(r => r.json()),
+  simulateScan: () => api.post('/inspections/simulate-scan/', {}),
 };
 
 export const panelsApi = {
@@ -63,6 +64,12 @@ export const reportsApi = {
   list: () => api.get('/reports/'),
   generate: (inspectionId: string) => api.post('/reports/generate/', { inspection_id: inspectionId }),
 };
+
+export const notificationsApi = {
+  list: () => api.get('/notifications/'),
+  markAllRead: () => api.post('/notifications/mark-all-read/', {}),
+};
+
 
 export const mapApi = {
   getFaultPoints: async (filters?: { fault_type?: string; date_from?: string }) => {
